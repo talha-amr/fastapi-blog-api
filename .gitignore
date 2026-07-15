@@ -17,3 +17,5 @@ postman/
 
 # OS files
 .DS_Store
+
+.env

@@ -1,18 +1,40 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import psycopg
 from typing import Optional
 from fastapi import FastAPI,status,HTTPException,Response
 from pydantic import BaseModel
 import random
+from psycopg.rows import dict_row
+import time
+
 class Post(BaseModel):
     title: str
     content: str
     published: bool = True
-    rating: Optional[float] = None
+connection=False
+while not connection:
+    try:
+        conn = psycopg.connect(
+            host=os.getenv("DATABASE_HOSTNAME"),
+            dbname=os.getenv("DATABASE_NAME"),
+            user=os.getenv("DATABASE_USERNAME"),
+            password=os.getenv("DATABASE_PASSWORD"),
+            port=os.getenv("DATABASE_PORT"),
+            row_factory=dict_row,
+        )
 
-# try:
-#     conn=psycopg
-# except:
-#     pass
+        cursor = conn.cursor()
+        print("Database connection successful")
+        connection=True
+    except Exception as error:
+        print("Database connection failed")
+        print("Error:", error)
+        time.sleep(3)
+
 
 my_posts = [
     {
@@ -47,7 +69,9 @@ def root():
 #GET ALL POSTS
 @app.get("/posts")
 def get_posts():
-    return {"data": my_posts}
+    cursor.execute("""Select * From posts """)
+    post=cursor.fetchall()
+    return {"data": post}
 
 
 #LATEST POST
@@ -67,10 +91,10 @@ def get_posts(id: int):
 #CREATE POST
 @app.post("/posts",status_code=status.HTTP_201_CREATED)
 def create_post(payload: Post):
-    payload_dict = payload.model_dump()
-    payload_dict["id"] = random.randint(1,100000)
-    my_posts.append(payload_dict)
-    return {"data": payload_dict} 
+    cursor.execute("""INSERT INTO posts(title,content,is_published) VALUES (%s,%s,%s) RETURNING *""",(payload.title,payload.content,payload.published))
+    new_post=cursor.fetchone()
+    conn.commit()
+    return {"data": new_post} 
 
 
 #DELETE
