@@ -83,9 +83,10 @@ def get_latest_post():
 #POST BY ID
 @app.get("/posts/{id}")
 def get_posts(id: int):
-    for post in my_posts:
-        if post["id"] == id:
-            return {"data": post}
+    cursor.execute("select * from posts where id=%s",(id,))
+    post_by_id=cursor.fetchone()
+    if post_by_id:
+        return {"data": post_by_id}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found")
    
 #CREATE POST
@@ -100,17 +101,19 @@ def create_post(payload: Post):
 #DELETE
 @app.delete('/posts/{id}')
 def delete_post(id: int):
-    for post in my_posts:
-        if post['id'] == id:
-            my_posts.remove(post)
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
+    cursor.execute("""DELETE FROM posts where id=%s RETURNING *""",(id,))
+    post_by_id=cursor.fetchone()
+    conn.commit()
+    if post_by_id:
+        return {"data": post_by_id}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found") 
 
 #UPDATE
 @app.put('/posts/{id}')
 def update_post(id: int, upd_post:Post):
-    for post in my_posts:
-        if post['id'] == id:
-            post.update(upd_post.model_dump())
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
+    cursor.execute("""UPDATE POSTS SET title=%s, content=%s, is_published=%s WHERE ID =%s RETURNING *""", (upd_post.title,upd_post.content,upd_post.published,id))
+    new_post=cursor.fetchone()
+    conn.commit()
+    if new_post:
+        return {"data": new_post}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found") 
