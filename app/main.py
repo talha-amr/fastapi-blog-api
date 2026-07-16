@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from .schemas import PostBase,PostCreate,PostResponse
+from .schemas import PostBase,PostCreate,PostResponse,User,UserResponse
 import psycopg
 from typing import Optional
 from fastapi import FastAPI,status,HTTPException,Response,Depends
@@ -12,11 +12,11 @@ import time
 from . import models
 from sqlalchemy.orm import Session
 from .database import engine,get_db
+from passlib.context import CryptContext
 
 models.Base.metadata.create_all(bind=engine)
 
-
-
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 connection=False
 while not connection:
@@ -117,3 +117,17 @@ def update_post(id: int, upd_post:PostCreate,db: Session=Depends(get_db)):
         return  post
         
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found") 
+
+#CreateUsers
+@app.post("/users",status_code=status.HTTP_201_CREATED,response_model=UserResponse)
+def create_user(payload:User,db: Session=Depends(get_db)):
+    user_check=db.query(models.User).filter(models.User.email==payload.email).first()
+    if not user_check:
+        hashed=pwd_context.hash(payload.password)
+        payload.password=hashed
+        new_user=models.User(**payload.model_dump())
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return new_user
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail="SAME email cant be regitered")
