@@ -5,16 +5,23 @@ load_dotenv()
 
 import psycopg
 from typing import Optional
-from fastapi import FastAPI,status,HTTPException,Response
+from fastapi import FastAPI,status,HTTPException,Response,Depends
 from pydantic import BaseModel
 import random
 from psycopg.rows import dict_row
 import time
+from . import models
+from sqlalchemy.orm import Session
+from .database import engine,get_db
 
+models.Base.metadata.create_all(bind=engine)
 class Post(BaseModel):
     title: str
     content: str
-    published: bool = True
+    published: bool = False
+
+
+
 connection=False
 while not connection:
     try:
@@ -36,29 +43,7 @@ while not connection:
         time.sleep(3)
 
 
-my_posts = [
-    {
-        "title": "Getting Started with FastAPI",
-        "content": "FastAPI is a modern Python framework for building APIs quickly and efficiently.",
-        "published": True,
-        "rating": 4.8,
-        "id": 1
-    },
-    {
-        "title": "Understanding Python Dictionaries",
-        "content": "Dictionaries store data as key-value pairs and provide fast lookups.",
-        "published": False,
-        "rating": 4.5,
-        "id": 2
-    },
-    {
-        "title": "Why Learn Backend Development?",
-        "content": "Backend development allows you to build APIs, manage databases, and handle business logic.",
-        "published": True,
-        "rating": 4.9,
-        "id": 3
-    }
-]
+
 app = FastAPI()
 
 #ROOT
@@ -68,52 +53,71 @@ def root():
 
 #GET ALL POSTS
 @app.get("/posts")
-def get_posts():
-    cursor.execute("""Select * From posts """)
-    post=cursor.fetchall()
+def get_posts(db: Session=Depends(get_db)):
+    # cursor.execute("""Select * From posts """)
+    # post=cursor.fetchall()
+    post=db.query(models.Post).all()
     return {"data": post}
+
 
 
 #LATEST POST
 @app.get('/posts/latest')
-def get_latest_post():
-    latest_post = my_posts[-1]
+def get_latest_post(db: Session=Depends(get_db)):
+    latest_post = db.query(models.Post).order_by(models.Post.created_at.desc()).first()
     return {"data": latest_post}
 
 #POST BY ID
 @app.get("/posts/{id}")
-def get_posts(id: int):
-    cursor.execute("select * from posts where id=%s",(id,))
-    post_by_id=cursor.fetchone()
+def get_posts(id: int,db: Session=Depends(get_db)):
+    # cursor.execute("select * from posts where id=%s",(id,))
+    # post_by_id=cursor.fetchone()
+    post_by_id=db.query(models.Post).filter(models.Post.id==id).first()
     if post_by_id:
         return {"data": post_by_id}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found")
    
 #CREATE POST
 @app.post("/posts",status_code=status.HTTP_201_CREATED)
-def create_post(payload: Post):
-    cursor.execute("""INSERT INTO posts(title,content,is_published) VALUES (%s,%s,%s) RETURNING *""",(payload.title,payload.content,payload.published))
-    new_post=cursor.fetchone()
-    conn.commit()
+def create_post(payload: Post,db: Session=Depends(get_db)):
+    # cursor.execute("""INSERT INTO posts(title,content,is_published) VALUES (%s,%s,%s) RETURNING *""",(payload.title,payload.content,payload.published))
+    # new_post=cursor.fetchone()
+    # conn.commit()
+    
+    new_post = models.Post(**payload.model_dump())   
+    db.add(new_post)
+    db.commit()
+    db.refresh(new_post)
     return {"data": new_post} 
 
 
 #DELETE
 @app.delete('/posts/{id}')
-def delete_post(id: int):
-    cursor.execute("""DELETE FROM posts where id=%s RETURNING *""",(id,))
-    post_by_id=cursor.fetchone()
-    conn.commit()
+def delete_post(id: int,db: Session=Depends(get_db)):
+    # cursor.execute("""DELETE FROM posts where id=%s RETURNING *""",(id,))
+    # post_by_id=cursor.fetchone()
+    # conn.commit()
+    post_by_id=db.query(models.Post).filter(models.Post.id==id).first()
+
     if post_by_id:
-        return {"data": post_by_id}
+        db.delete(post_by_id)
+        db.commit()
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found") 
 
 #UPDATE
 @app.put('/posts/{id}')
-def update_post(id: int, upd_post:Post):
-    cursor.execute("""UPDATE POSTS SET title=%s, content=%s, is_published=%s WHERE ID =%s RETURNING *""", (upd_post.title,upd_post.content,upd_post.published,id))
-    new_post=cursor.fetchone()
-    conn.commit()
-    if new_post:
-        return {"data": new_post}
+def update_post(id: int, upd_post:Post,db: Session=Depends(get_db)):
+    # cursor.execute("""UPDATE POSTS SET title=%s, content=%s, is_published=%s WHERE ID =%s RETURNING *""", (upd_post.title,upd_post.content,upd_post.published,id))
+    # new_post=cursor.fetchone()
+    # conn.commit()
+    post_query=db.query(models.Post).filter(models.Post.id==id)
+    post=post_query.first()
+    
+    if post:
+        post_query.update(upd_post.model_dump(),synchronize_session=False)
+        db.commit()
+        db.refresh(post)
+        return {"data": post}
+        
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found") 
