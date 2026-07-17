@@ -4,9 +4,9 @@ from fastapi import FastAPI,status,HTTPException,Response,Depends,APIRouter
 from .. import models
 from ..database import get_db
 
-router=APIRouter()
+router=APIRouter(prefix='/posts',tags=['Posts'])
 #GET ALL POSTS
-@router.get("/posts",response_model=list[PostResponse])
+@router.get("/",response_model=list[PostResponse])
 def get_posts(db: Session=Depends(get_db)):
     # cursor.execute("""Select * From posts """)
     # post=cursor.fetchall()
@@ -16,13 +16,13 @@ def get_posts(db: Session=Depends(get_db)):
 
 
 #LATEST POST
-@router.get('/posts/latest',response_model=PostResponse)
+@router.get('/latest',response_model=PostResponse)
 def get_latest_post(db: Session=Depends(get_db)):
     latest_post = db.query(models.Post).order_by(models.Post.created_at.desc()).first()
     return latest_post
 
 #POST BY ID
-@router.get("/posts/{id}",response_model=PostResponse)
+@router.get("/{id}",response_model=PostResponse)
 def get_posts(id: int,db: Session=Depends(get_db)):
     # cursor.execute("select * from posts where id=%s",(id,))
     # post_by_id=cursor.fetchone()
@@ -32,7 +32,7 @@ def get_posts(id: int,db: Session=Depends(get_db)):
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found")
    
 #CREATE POST
-@router.post("/posts",status_code=status.HTTP_201_CREATED,response_model=PostResponse)
+@router.post("/",status_code=status.HTTP_201_CREATED,response_model=PostResponse)
 def create_post(payload: PostCreate,db: Session=Depends(get_db)):
     # cursor.execute("""INSERT INTO posts(title,content,is_published) VALUES (%s,%s,%s) RETURNING *""",(payload.title,payload.content,payload.published))
     # new_post=cursor.fetchone()
@@ -46,7 +46,7 @@ def create_post(payload: PostCreate,db: Session=Depends(get_db)):
 
 
 #DELETE
-@router.delete('/posts/{id}')
+@router.delete('/{id}')
 def delete_post(id: int,db: Session=Depends(get_db)):
     # cursor.execute("""DELETE FROM posts where id=%s RETURNING *""",(id,))
     # post_by_id=cursor.fetchone()
@@ -60,7 +60,7 @@ def delete_post(id: int,db: Session=Depends(get_db)):
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found") 
 
 #UPDATE
-@router.put('/posts/{id}',response_model=PostResponse)
+@router.put('/{id}',response_model=PostResponse)
 def update_post(id: int, upd_post:PostCreate,db: Session=Depends(get_db)):
     # cursor.execute("""UPDATE POSTS SET title=%s, content=%s, is_published=%s WHERE ID =%s RETURNING *""", (upd_post.title,upd_post.content,upd_post.published,id))
     # new_post=cursor.fetchone()
