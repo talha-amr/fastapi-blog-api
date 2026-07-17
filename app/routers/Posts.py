@@ -3,6 +3,7 @@ from ..schemas import PostCreate,PostResponse
 from fastapi import FastAPI,status,HTTPException,Response,Depends,APIRouter
 from .. import models
 from ..database import get_db
+from .. import oauth2
 
 router=APIRouter(prefix='/posts',tags=['Posts'])
 #GET ALL POSTS
@@ -23,7 +24,7 @@ def get_latest_post(db: Session=Depends(get_db)):
 
 #POST BY ID
 @router.get("/{id}",response_model=PostResponse)
-def get_posts(id: int,db: Session=Depends(get_db)):
+def get_posts(id: int,db: Session=Depends(get_db),user_id=Depends(oauth2.get_user)):
     # cursor.execute("select * from posts where id=%s",(id,))
     # post_by_id=cursor.fetchone()
     post_by_id=db.query(models.Post).filter(models.Post.id==id).first()
@@ -33,11 +34,11 @@ def get_posts(id: int,db: Session=Depends(get_db)):
    
 #CREATE POST
 @router.post("/",status_code=status.HTTP_201_CREATED,response_model=PostResponse)
-def create_post(payload: PostCreate,db: Session=Depends(get_db)):
+def create_post(payload: PostCreate,db: Session=Depends(get_db),user_id=Depends(oauth2.get_user)):
     # cursor.execute("""INSERT INTO posts(title,content,is_published) VALUES (%s,%s,%s) RETURNING *""",(payload.title,payload.content,payload.published))
     # new_post=cursor.fetchone()
     # conn.commit()
-    
+    print(user_id)
     new_post = models.Post(**payload.model_dump())   
     db.add(new_post)
     db.commit()
@@ -47,7 +48,7 @@ def create_post(payload: PostCreate,db: Session=Depends(get_db)):
 
 #DELETE
 @router.delete('/{id}')
-def delete_post(id: int,db: Session=Depends(get_db)):
+def delete_post(id: int,db: Session=Depends(get_db),user_id=Depends(oauth2.get_user)):
     # cursor.execute("""DELETE FROM posts where id=%s RETURNING *""",(id,))
     # post_by_id=cursor.fetchone()
     # conn.commit()
@@ -61,7 +62,7 @@ def delete_post(id: int,db: Session=Depends(get_db)):
 
 #UPDATE
 @router.put('/{id}',response_model=PostResponse)
-def update_post(id: int, upd_post:PostCreate,db: Session=Depends(get_db)):
+def update_post(id: int, upd_post:PostCreate,db: Session=Depends(get_db),user_id=Depends(oauth2.get_user)):
     # cursor.execute("""UPDATE POSTS SET title=%s, content=%s, is_published=%s WHERE ID =%s RETURNING *""", (upd_post.title,upd_post.content,upd_post.published,id))
     # new_post=cursor.fetchone()
     # conn.commit()
