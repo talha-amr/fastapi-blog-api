@@ -1,11 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-import os
-from dotenv import load_dotenv
+from .config import settings
 
-load_dotenv()
 
-SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{os.getenv('DATABASE_USERNAME')}:{os.getenv('DATABASE_PASSWORD')}@{os.getenv('DATABASE_HOSTNAME')}:{os.getenv('DATABASE_PORT')}/{os.getenv('DATABASE_NAME')}"
+SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}"
 
 engine= create_engine(SQLALCHEMY_DATABASE_URL)
 
@@ -19,4 +17,4 @@ def get_db():
         yield db
 
     finally:
-        db.close()  
+        db.close()

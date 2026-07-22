@@ -1,19 +1,17 @@
-import os
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from . import schemas,database,models
-from dotenv import load_dotenv
+from .config import settings
 from jose import JWTError, jwt
 from fastapi import Depends,HTTPException,status
 from fastapi.security import OAuth2PasswordBearer
 
 oauth2_scheme=OAuth2PasswordBearer(tokenUrl='login')
 
-load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
-TOKEN_EXPIRATION = int(os.getenv("TOKEN_EXPIRATION"))
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+TOKEN_EXPIRATION = settings.token_expiration
 
 
 def create_access_token(data: dict):
@@ -45,4 +43,8 @@ def get_user(token:str=Depends(oauth2_scheme),db: Session =Depends(database.get_
     credentials_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Couldn't Validate Credentials",headers={"WWW-AUTHENTICATE": "Bearer"})
     token= verify_token(token,credentials_exception)
     user=db.query(models.User).filter(models.User.id==token.id).first()
+
+    if user is None:
+        raise credentials_exception
+
     return user
