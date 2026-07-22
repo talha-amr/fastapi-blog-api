@@ -11,6 +11,7 @@ class PostCreate(PostBase):
 
 class PostResponse(PostBase):
     id: int
+    user_id: int
     model_config = ConfigDict(from_attributes=True)
 
 class User(BaseModel):

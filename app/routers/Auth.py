@@ -14,6 +14,7 @@ def login(payload: OAuth2PasswordRequestForm  = Depends(),db:Session=Depends(get
 
     if not user:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Invalid Credentials")
+    
     verified=utils.pwd_context.verify(payload.password,user.password)
     if not verified:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Invalid Credentials")
