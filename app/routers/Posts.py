@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from ..schemas import PostCreate,PostResponse
+from ..schemas import PostCreate,PostResponse,PostVoteResponse
+from sqlalchemy import func
 from fastapi import FastAPI,status,HTTPException,Response,Depends,APIRouter
 from typing import Optional
 from .. import models
@@ -8,28 +9,29 @@ from .. import oauth2
 
 router=APIRouter(prefix='/posts',tags=['Posts'])
 #GET ALL POSTS
-@router.get("/",response_model=list[PostResponse])
+@router.get("/",response_model=list[PostVoteResponse])
 def get_posts(db: Session=Depends(get_db),limit : int =10,skip:int = 0,search: Optional[str]=""):
     # cursor.execute("""Select * From posts """)
     # post=cursor.fetchall()
-    post=db.query(models.Post).filter(models.Post.title.contains(search)).limit(limit).offset(skip).all()
+    # post=db.query(models.Post).filter(models.Post.title.contains(search)).limit(limit).offset(skip).all()
+    post= db.query(models.Post,func.count(models.Vote.post_id).label("votes")).join(models.Vote,models.Post.id==models.Vote.post_id,isouter=True).group_by(models.Post.id).filter(models.Post.title.contains(search)).limit(limit).offset(skip).all()
     return post
 
 
 
 #LATEST POST
-@router.get('/latest',response_model=PostResponse)
+@router.get('/latest',response_model=PostVoteResponse)
 def get_latest_post(db: Session=Depends(get_db)):
-    latest_post = db.query(models.Post).order_by(models.Post.created_at.desc()).first()
+    latest_post =  db.query(models.Post,func.count(models.Vote.post_id).label("votes")).join(models.Vote,models.Post.id==models.Vote.post_id,isouter=True).group_by(models.Post.id).order_by(models.Post.created_at.desc()).first()
     return latest_post
 
 #POST BY ID
-@router.get("/{id}",response_model=PostResponse)
+@router.get("/{id}",response_model=PostVoteResponse)
 def get_posts(id: int,db: Session=Depends(get_db),user=Depends(oauth2.get_user)):
     # cursor.execute("select * from posts where id=%s",(id,))
     # post_by_id=cursor.fetchone()
     print(user.email)
-    post_by_id=db.query(models.Post).filter(models.Post.id==id).first()
+    post_by_id= db.query(models.Post,func.count(models.Vote.post_id).label("votes")).join(models.Vote,models.Post.id==models.Vote.post_id,isouter=True).group_by(models.Post.id).filter(models.Post.id==id).first()
     if post_by_id:
         return post_by_id
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id: {id} not found")

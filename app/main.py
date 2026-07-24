@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from . import models
 from .database import engine
-from .routers import Posts, Users,Auth
+from .routers import Posts, Users,Auth,Votes
 
 
 models.Base.metadata.create_all(bind=engine)
@@ -18,3 +18,4 @@ def root():
 app.include_router(Posts.router)
 app.include_router(Users.router)
 app.include_router(Auth.router)
+app.include_router(Votes.router)
